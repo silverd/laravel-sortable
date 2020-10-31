@@ -2,15 +2,10 @@
 
 return [
 
-    /*
-     * Which column will be used as the order column.
-     */
-    'order_column_name' => 'weight',
+    // 排序权重字段
+    'sort_column_name' => 'weight',
 
-    /*
-     * Define if the models should sort when creating.
-     * When true, the package will automatically assign the highest order number to a new mode
-     */
-    'sort_when_creating' => false,
+    // 新插的记录在最前/最尾 start/end
+    'sort_when_creating' => 'end',
 
 ];

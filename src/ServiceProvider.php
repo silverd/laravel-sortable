@@ -2,9 +2,9 @@
 
 namespace Silverd\LaravelSortable;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\ServiceProvider as BaseServiceProvider;
 
-class LaravelSortableServiceProvider extends ServiceProvider
+class ServiceProvider extends BaseServiceProvider
 {
     public function boot()
     {
