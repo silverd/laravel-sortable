@@ -1,6 +1,6 @@
 <?php
 
-namespace Spatie\EloquentSortable;
+namespace Silverd\LaravelSortable;
 
 use Illuminate\Database\Eloquent\Builder;
 
@@ -9,7 +9,7 @@ interface Sortable
     /**
      * Modify the order column value.
      */
-    public function setHighestOrderNumber();
+    public function setMaxOrderNumber();
 
     /**
      * Let's be nice and provide an ordered scope.

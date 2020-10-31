@@ -1,6 +1,6 @@
 <?php
 
-namespace Spatie\EloquentSortable;
+namespace Silverd\LaravelSortable;
 
 use ArrayAccess;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,21 +13,33 @@ trait SortableTrait
     {
         static::creating(function ($model) {
             if ($model instanceof Sortable && $model->shouldSortWhenCreating()) {
-                $model->setHighestOrderNumber();
+                $model->setMaxOrderNumber();
             }
         });
     }
 
-    public function setHighestOrderNumber()
+    public function setMaxOrderNumber()
     {
         $orderColumnName = $this->determineOrderColumnName();
 
-        $this->$orderColumnName = $this->getHighestOrderNumber() + 1;
+        $this->$orderColumnName = $this->getMaxOrderNumber() + 1;
     }
 
-    public function getHighestOrderNumber(): int
+    public function getMaxOrderNumber(): int
     {
         return (int) $this->buildSortQuery()->max($this->determineOrderColumnName());
+    }
+
+    public function setMinOrderNumber()
+    {
+        $orderColumnName = $this->determineOrderColumnName();
+
+        $this->$orderColumnName = $this->getMinOrderNumber() - 1;
+    }
+
+    public function getMinOrderNumber(): int
+    {
+        return (int) $this->buildSortQuery()->min($this->determineOrderColumnName());
     }
 
     public function scopeOrdered(Builder $query, string $direction = 'asc')
@@ -63,9 +75,7 @@ trait SortableTrait
 
     public function determineOrderColumnName(): string
     {
-        return isset($this->sortable['order_column_name'])
-            ? $this->sortable['order_column_name']
-            : config('eloquent-sortable.order_column_name', 'order_column');
+        return $this->sortable['order_column_name'] ?? config('eloquent-sortable.order_column_name', 'weight');
     }
 
     /**
@@ -73,18 +83,17 @@ trait SortableTrait
      */
     public function shouldSortWhenCreating(): bool
     {
-        return isset($this->sortable['sort_when_creating'])
-            ? $this->sortable['sort_when_creating']
-            : config('eloquent-sortable.sort_when_creating', true);
+        return $this->sortable['sort_when_creating'] ?? config('eloquent-sortable.sort_when_creating', true);
     }
 
     public function moveOrderDown()
     {
         $orderColumnName = $this->determineOrderColumnName();
 
-        $swapWithModel = $this->buildSortQuery()->limit(1)
-            ->ordered()
-            ->where($orderColumnName, '>', $this->$orderColumnName)
+        $swapWithModel = $this->buildSortQuery()
+            ->where($orderColumnName, '<', $this->$orderColumnName)
+            ->ordered('desc')
+            ->limit(1)
             ->first();
 
         if (! $swapWithModel) {
@@ -98,9 +107,10 @@ trait SortableTrait
     {
         $orderColumnName = $this->determineOrderColumnName();
 
-        $swapWithModel = $this->buildSortQuery()->limit(1)
-            ->ordered('desc')
-            ->where($orderColumnName, '<', $this->$orderColumnName)
+        $swapWithModel = $this->buildSortQuery()
+            ->where($orderColumnName, '>', $this->$orderColumnName)
+            ->ordered('asc')
+            ->limit(1)
             ->first();
 
         if (! $swapWithModel) {
@@ -132,8 +142,9 @@ trait SortableTrait
 
     public function moveToStart()
     {
-        $firstModel = $this->buildSortQuery()->limit(1)
-            ->ordered()
+        $firstModel = $this->buildSortQuery()
+            ->ordered('desc')
+            ->limit(1)
             ->first();
 
         if ($firstModel->getKey() === $this->getKey()) {
@@ -145,28 +156,47 @@ trait SortableTrait
         $this->$orderColumnName = $firstModel->$orderColumnName;
         $this->save();
 
-        $this->buildSortQuery()->where($this->getKeyName(), '!=', $this->getKey())->increment($orderColumnName);
+        $this->buildSortQuery()
+            ->where($this->getKeyName(), '!=', $this->getKey())
+            ->decrement($orderColumnName);
 
         return $this;
     }
 
     public function moveToEnd()
     {
-        $maxOrder = $this->getHighestOrderNumber();
+        $minOrder = $this->getMinOrderNumber();
 
         $orderColumnName = $this->determineOrderColumnName();
 
-        if ($this->$orderColumnName === $maxOrder) {
+        if ($this->$orderColumnName === $minOrder) {
             return $this;
         }
 
-        $oldOrder = $this->$orderColumnName;
-
-        $this->$orderColumnName = $maxOrder;
+        $this->$orderColumnName = $minOrder;
         $this->save();
 
-        $this->buildSortQuery()->where($this->getKeyName(), '!=', $this->getKey())
-            ->where($orderColumnName, '>', $oldOrder)
+        $this->buildSortQuery()
+            ->where($this->getKeyName(), '!=', $this->getKey())
+            ->increment($orderColumnName);
+
+        return $this;
+    }
+
+    public function insertBefore(Sortable $model)
+    {
+        if ($model->getKey() === $this->getKey()) {
+            return $this;
+        }
+
+        $newOrder = $model->$orderColumnName;
+
+        $this->$orderColumnName = $newOrder;
+        $this->save();
+
+        $this->buildSortQuery()
+            ->where($this->getKeyName(), '!=', $this->getKey())
+            ->where($orderColumnName, '<=', $newOrder)
             ->decrement($orderColumnName);
 
         return $this;

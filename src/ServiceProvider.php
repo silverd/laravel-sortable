@@ -1,10 +1,10 @@
 <?php
 
-namespace Spatie\EloquentSortable;
+namespace Silverd\LaravelSortable;
 
 use Illuminate\Support\ServiceProvider;
 
-class EloquentSortableServiceProvider extends ServiceProvider
+class LaravelSortableServiceProvider extends ServiceProvider
 {
     public function boot()
     {

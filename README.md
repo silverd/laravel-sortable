@@ -11,7 +11,7 @@ The value of the order column of a new record of a model is determined by the ma
 
 The package also provides a query scope to fetch all the records in the right order.
 
-Spatie is a webdesign agency in Antwerp, Belgium. You'll find an overview of all our open source projects [on our website](https://spatie.be/opensource).
+Silverd is a webdesign agency in Antwerp, Belgium. You'll find an overview of all our open source projects [on our website](https://spatie.be/opensource).
 
 ## Support us
 
@@ -34,14 +34,14 @@ In Laravel 5.5 and above the service provider will automatically get registered.
 ```php
 'providers' => [
     ...
-    Spatie\EloquentSortable\EloquentSortableServiceProvider::class,
+    Silverd\LaravelSortable\LaravelSortableServiceProvider::class,
 ];
 ```
 
 Optionally you can publish the config file with:
 
 ```bash
-php artisan vendor:publish --provider="Spatie\EloquentSortable\EloquentSortableServiceProvider" --tag="config"
+php artisan vendor:publish --provider="Silverd\LaravelSortable\LaravelSortableServiceProvider" --tag="config"
 ```
 
 This is the content of the file that will be published in `config/eloquent-sortable.php`
@@ -64,15 +64,15 @@ return [
 ## Usage
 
 To add sortable behaviour to your model you must:
-1. Implement the `Spatie\EloquentSortable\Sortable` interface.
-2. Use the trait `Spatie\EloquentSortable\SortableTrait`.
+1. Implement the `Silverd\LaravelSortable\Sortable` interface.
+2. Use the trait `Silverd\LaravelSortable\SortableTrait`.
 3. Optionally specify which column will be used as the order column. The default is `order_column`.
 
 ### Example
 
 ```php
-use Spatie\EloquentSortable\Sortable;
-use Spatie\EloquentSortable\SortableTrait;
+use Silverd\LaravelSortable\Sortable;
+use Silverd\LaravelSortable\SortableTrait;
 
 class MyModel extends Eloquent implements Sortable
 {
