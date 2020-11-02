@@ -24,6 +24,11 @@ trait SortableTrait
         });
     }
 
+    protected function buildSortQuery()
+    {
+        return static::query();
+    }
+
     public function setMaxOrderNumber()
     {
         $sortColumnName = $this->determineSortColumnName();
@@ -200,7 +205,7 @@ trait SortableTrait
 
         $sortColumnName = $this->determineSortColumnName();
 
-        // 已是最前
+        // 已是最顶
         if ($this->$sortColumnName === $maxOrder) {
             return $this;
         }
@@ -218,8 +223,31 @@ trait SortableTrait
         return $this;
     }
 
-    public function buildSortQuery()
+    public function insertAfter(Sortable $reference)
     {
-        return static::query();
+        if ($reference->getKey() === $this->getKey()) {
+            return $this;
+        }
+
+        $minOrder = $this->getMinOrderNumber();
+
+        $sortColumnName = $this->determineSortColumnName();
+
+        // 已是最底
+        if ($this->$sortColumnName === $minOrder) {
+            return $this;
+        }
+
+        $newOrder = $reference->$sortColumnName;
+
+        $this->$sortColumnName = $newOrder;
+        $this->save();
+
+        $this->buildSortQuery()
+            ->where($this->getKeyName(), '!=', $this->getKey())
+            ->where($sortColumnName, '>=', $newOrder)
+            ->increment($sortColumnName);
+
+        return $this;
     }
 }
