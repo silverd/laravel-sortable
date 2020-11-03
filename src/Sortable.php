@@ -6,10 +6,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 interface Sortable
 {
-    /**
-     * Modify the order column value.
-     */
     public function setMaxOrderNumber();
+    public function setMinOrderNumber();
 
     /**
      * Let's be nice and provide an ordered scope.
@@ -32,5 +30,5 @@ interface Sortable
     /**
      * Determine if the order column should be set when saving a new model instance.
      */
-    public function shouldSortWhenCreating(): bool;
+    public function shouldSortWhenCreating(): string;
 }

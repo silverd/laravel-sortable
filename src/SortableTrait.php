@@ -92,7 +92,7 @@ trait SortableTrait
     /**
      * Determine if the order column should be set when saving a new model instance.
      */
-    public function shouldSortWhenCreating(): bool
+    public function shouldSortWhenCreating(): string
     {
         return $this->sortable['sort_when_creating'] ?? config('laravel-sortable.sort_when_creating', 'end');
     }
