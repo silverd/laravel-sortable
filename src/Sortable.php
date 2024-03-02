@@ -30,5 +30,5 @@ interface Sortable
     /**
      * Determine if the order column should be set when saving a new model instance.
      */
-    public function shouldSortWhenCreating(): string;
+    public function shouldSortWhenCreating();
 }

@@ -9,6 +9,18 @@ use InvalidArgumentException;
 
 trait SortableTrait
 {
+    // 不可上、不可下
+    const UP_0_DOWN_0 = 0;
+
+    // 不可上、可下
+    const UP_0_DOWN_1 = 1;
+
+    // 可上、不可下
+    const UP_1_DOWN_0 = 2;
+
+    // 可上、可下
+    const UP_1_DOWN_1 = 3;
+
     public static function bootSortableTrait()
     {
         static::creating(function ($model) {
@@ -20,6 +32,18 @@ trait SortableTrait
                 elseif ($newSort === 'start') {
                     $model->setMaxOrderNumber();
                 }
+            }
+        });
+
+        static::created(function ($model) {
+            if ($model->determineCanSortsColumnName()) {
+                $model->resetCanSortsFlags();
+            }
+        });
+
+        static::deleted(function ($model) {
+            if ($model->determineCanSortsColumnName()) {
+                $model->resetCanSortsFlags();
             }
         });
     }
@@ -36,7 +60,7 @@ trait SortableTrait
         $this->$sortColumnName = $this->getMaxOrderNumber() + 1;
     }
 
-    public function getMaxOrderNumber(): int
+    public function getMaxOrderNumber()
     {
         return (int) $this->buildSortQuery()->max($this->determineSortColumnName());
     }
@@ -48,7 +72,7 @@ trait SortableTrait
         $this->$sortColumnName = $this->getMinOrderNumber() - 1;
     }
 
-    public function getMinOrderNumber(): int
+    public function getMinOrderNumber()
     {
         return (int) $this->buildSortQuery()->min($this->determineSortColumnName());
     }
@@ -84,15 +108,20 @@ trait SortableTrait
         self::setNewOrder($ids, $startOrder, $primaryKeyColumn);
     }
 
-    public function determineSortColumnName(): string
+    public function determineSortColumnName()
     {
         return $this->sortable['sort_column_name'] ?? config('laravel-sortable.sort_column_name', 'weight');
+    }
+
+    public function determineCanSortsColumnName()
+    {
+        return $this->sortable['can_sorts_column_name'] ?? config('laravel-sortable.can_sorts_column_name');
     }
 
     /**
      * Determine if the order column should be set when saving a new model instance.
      */
-    public function shouldSortWhenCreating(): string
+    public function shouldSortWhenCreating()
     {
         return $this->sortable['sort_when_creating'] ?? config('laravel-sortable.sort_when_creating', 'end');
     }
@@ -134,13 +163,25 @@ trait SortableTrait
     public function swapOrderWithModel(Sortable $otherModel)
     {
         $sortColumnName = $this->determineSortColumnName();
-
         $oldOrderOfOtherModel = $otherModel->$sortColumnName;
 
+        $canSortsColumnName = $this->determineCanSortsColumnName();
+        $oldCanSortsOfOtherModel = $otherModel->$canSortsColumnName;
+
         $otherModel->$sortColumnName = $this->$sortColumnName;
+
+        if ($canSortsColumnName) {
+            $otherModel->$canSortsColumnName = $this->$canSortsColumnName;
+        }
+
         $otherModel->save();
 
         $this->$sortColumnName = $oldOrderOfOtherModel;
+
+        if ($canSortsColumnName) {
+            $this->$canSortsColumnName = $oldCanSortsOfOtherModel;
+        }
+
         $this->save();
 
         return $this;
@@ -153,62 +194,23 @@ trait SortableTrait
 
     public function moveToStart()
     {
-        $firstModel = $this->buildSortQuery()
-            ->ordered('desc')
-            ->first();
-
-        // 已是最前
-        if ($firstModel->getKey() === $this->getKey()) {
-            return $this;
-        }
-
-        $sortColumnName = $this->determineSortColumnName();
-
-        $this->$sortColumnName = $firstModel->$sortColumnName;
-        $this->save();
-
-        $this->buildSortQuery()
-            ->where($this->getKeyName(), '!=', $this->getKey())
-            ->decrement($sortColumnName);
-
-        return $this;
+        return $this->insertBefore($this->getTheFirstModel());
     }
 
     public function moveToEnd()
     {
-        $minOrder = $this->getMinOrderNumber();
-
-        $sortColumnName = $this->determineSortColumnName();
-
-        // 已是最尾
-        if ($this->$sortColumnName === $minOrder) {
-            return $this;
-        }
-
-        $this->$sortColumnName = $minOrder;
-        $this->save();
-
-        $this->buildSortQuery()
-            ->where($this->getKeyName(), '!=', $this->getKey())
-            ->increment($sortColumnName);
-
-        return $this;
+        return $this->insertAfter($this->getTheLastModel());
     }
 
     public function insertBefore(Sortable $reference)
     {
+        $this->resetCanSortsFlags();
+
         if ($reference->getKey() === $this->getKey()) {
             return $this;
         }
 
-        $maxOrder = $this->getMaxOrderNumber();
-
         $sortColumnName = $this->determineSortColumnName();
-
-        // 已是最顶
-        if ($this->$sortColumnName === $maxOrder) {
-            return $this;
-        }
 
         $newOrder = $reference->$sortColumnName;
 
@@ -220,6 +222,8 @@ trait SortableTrait
             ->where($sortColumnName, '<=', $newOrder)
             ->decrement($sortColumnName);
 
+        $this->resetCanSortsFlags();
+
         return $this;
     }
 
@@ -229,14 +233,7 @@ trait SortableTrait
             return $this;
         }
 
-        $minOrder = $this->getMinOrderNumber();
-
         $sortColumnName = $this->determineSortColumnName();
-
-        // 已是最底
-        if ($this->$sortColumnName === $minOrder) {
-            return $this;
-        }
 
         $newOrder = $reference->$sortColumnName;
 
@@ -248,6 +245,51 @@ trait SortableTrait
             ->where($sortColumnName, '>=', $newOrder)
             ->increment($sortColumnName);
 
+        $this->resetCanSortsFlags();
+
         return $this;
+    }
+
+    public function getTheFirstModel()
+    {
+        return $this->buildSortQuery()->ordered('desc')->first();
+    }
+
+    public function getTheLastModel()
+    {
+        return $this->buildSortQuery()->ordered('asc')->first();
+    }
+
+    public function resetCanSortsFlags()
+    {
+        if (! $canSortsColumnName = $this->determineCanSortsColumnName()) {
+            return $this;
+        }
+
+        $firstModel = $this->getTheFirstModel();
+        $lastModel  = $this->getTheLastModel();
+
+        if ($firstModel->getKey() == $lastModel->getKey()) {
+            $firstModel->update([
+                $canSortsColumnName => self::UP_0_DOWN_0,
+            ]);
+        }
+        else {
+            $firstModel->update([
+                $canSortsColumnName => self::UP_0_DOWN_1,
+            ]);
+            $lastModel->update([
+                $canSortsColumnName => self::UP_1_DOWN_0,
+            ]);
+        }
+
+        $this->buildSortQuery()
+            ->whereNotIn($this->getKeyName(), [
+                $firstModel->getKey(),
+                $lastModel->getKey(),
+            ])
+            ->update([
+                $canSortsColumnName => self::UP_1_DOWN_1,
+            ]);
     }
 }
