@@ -204,8 +204,6 @@ trait SortableTrait
 
     public function insertBefore(Sortable $reference)
     {
-        $this->resetCanSortsFlags();
-
         if ($reference->getKey() === $this->getKey()) {
             return $this;
         }
